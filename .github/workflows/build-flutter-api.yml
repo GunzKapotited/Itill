@@ -1,0 +1,92 @@
+name: Build Flutter APK
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Unzip source code
+      run: |
+        # Cari file zip di root
+        if ls *.zip 1> /dev/null 2>&1; then
+          echo "Found zip file, extracting..."
+          for zipfile in *.zip; do
+            echo "Extracting $zipfile..."
+            unzip -q -o "$zipfile" -d temp_extract/
+            shopt -s dotglob
+            cp -rf temp_extract/* ./
+            shopt -u dotglob
+            rm -rf temp_extract/
+            rm -f "$zipfile"
+          done
+          echo "Extraction complete"
+        else
+          echo "No zip file found"
+        fi
+        ls -la
+    
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+    
+    - name: Setup Flutter (auto detect)
+      uses: subosito/flutter-action@v2
+      with:
+        channel: 'stable'
+        cache: true
+        cache-key: flutter-sdk  # Cache key spesifik
+    
+    - name: Cache Flutter pub dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          .pub-cache
+          build/
+          .dart_tool/
+        key: ${{ runner.os }}-pub-${{ hashFiles('pubspec.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-pub-
+          ${{ runner.os }}-cache-
+    
+    - name: Cache Gradle files
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.gradle/caches/
+          ~/.gradle/wrapper/
+          android/.gradle/
+        key: ${{ runner.os }}-gradle-${{ hashFiles('android/build.gradle', 'android/app/build.gradle') }}
+        restore-keys: |
+          ${{ runner.os }}-gradle-
+    
+    - name: Clean and get dependencies
+      run: |
+        flutter clean
+        flutter pub get
+    
+    - name: Verify setup
+      run: |
+        flutter --version
+        flutter doctor -v
+    
+    - name: Build APK
+      run: flutter build apk --release
+    
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: flutter-release-apk
+        path: build/app/outputs/flutter-apk/app-release.apk
+        retention-days: 30
