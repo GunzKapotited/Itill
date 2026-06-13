@@ -1,116 +1,128 @@
-name: Build Flutter APK (Compatible Versions)
+name: Build APK
 
 on:
-  push:
-    branches: [ main, master ]
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    
     steps:
     - uses: actions/checkout@v4
     
-    # ==================== 1. EKSTRAK ZIP ====================
     - name: Extract ZIP
       run: |
-        echo "📦 Extracting ZIP files..."
-        for zip in *.zip; do
-          [ -f "$zip" ] || continue
-          unzip -q "$zip" -d project/
-        done
-        rm -rf project/__MACOSX 2>/dev/null || true
-        echo "✅ Extraction complete"
-        ls -la project/
-    
-    # ==================== 2. AUTO-FIX PUBSPEC.YAML ====================
-    - name: Auto-Fix all dependencies (Compatible versions)
-      run: |
+        unzip -q *.zip -d project/
         cd project
-        echo "🔧 Auto-fixing pubspec.yaml for Dart 3.4..."
         
-        # Backup
-        cp pubspec.yaml pubspec.yaml.bak
-        
-        # ===== KUNCI UTAMA: PAKAI VERSI YANG KOMPATIBEL DENGAN DART 3.4 =====
-        
-        # font_awesome_flutter - pakai versi terakhir yang support Dart 3.4
-        sed -i 's/font_awesome_flutter: \^10.7.0/font_awesome_flutter: ^10.6.0/g' pubspec.yaml
-        sed -i 's/font_awesome_flutter: \^10.8.0/font_awesome_flutter: ^10.6.0/g' pubspec.yaml
-        sed -i 's/font_awesome_flutter: \^10.9.0/font_awesome_flutter: ^10.6.0/g' pubspec.yaml
-        sed -i 's/font_awesome_flutter: \^11.0.0/font_awesome_flutter: ^10.6.0/g' pubspec.yaml
-        
-        # youtube_player_flutter - pakai versi lama yang stabil
-        sed -i 's/youtube_player_flutter: \^10.0.1/youtube_player_flutter: ^9.1.3/g' pubspec.yaml
-        
-        # flutter_lints - comment out atau downgrade
-        sed -i 's/flutter_lints: \^5.0.0/# flutter_lints: ^5.0.0/g' pubspec.yaml
-        sed -i 's/flutter_lints: \^6.0.0/# flutter_lints: ^6.0.0/g' pubspec.yaml
-        
-        # Package lain tetap update ke versi kompatibel
-        sed -i 's/socket_io_client: \^2.0.3/socket_io_client: ^2.0.3/g' pubspec.yaml
-        sed -i 's/web_socket_channel: \^2.4.0/web_socket_channel: ^2.4.0/g' pubspec.yaml
-        sed -i 's/intl: \^0.19.0/intl: ^0.19.0/g' pubspec.yaml
-        sed -i 's/device_info_plus: \^13.1.0/device_info_plus: ^10.1.2/g' pubspec.yaml
-        sed -i 's/permission_handler: \^12.0.3/permission_handler: ^11.3.0/g' pubspec.yaml
-        
-        echo "✅ pubspec.yaml fixed!"
-        echo ""
-        echo "📝 Final versions:"
-        grep -E "font_awesome_flutter:|youtube_player_flutter:|flutter_lints:" pubspec.yaml || echo "Done"
+        # GANTI PUBSPEC.YAML DENGAN VERSI BARU YANG KOMPATIBEL
+        cat > pubspec.yaml << 'EOF'
+name: wongirengjembuten365
+description: "Sikma"
+publish_to: 'none'
+version: 4.1.0
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  http: ^1.1.0
+  url_launcher: ^6.2.6
+  cupertino_icons: ^1.0.8
+  shared_preferences: ^2.2.2
+  device_info_plus: ^10.1.0
+  carousel_slider: ^4.2.1
+  youtube_player_flutter: ^8.0.0
+  web_socket_channel: ^2.4.0
+  network_info_plus: ^5.0.1
+  permission_handler: ^11.3.0
+  video_player: ^2.8.6
+  webview_flutter: ^4.7.0
+  shimmer: ^3.0.0
+  socket_io_client: ^2.0.3
+  audioplayers: ^5.2.0
+  intl: ^0.18.0
+  font_awesome_flutter: ^10.5.0
+  file_picker: ^6.1.1
+  path_provider: ^2.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/title.png
+    - assets/images/bokep.png
+    - assets/images/wa.png
+    - assets/images/tele.png
+    - assets/images/home.png
+    - assets/images/ddos.png
+    - assets/images/tools.png
+    - assets/images/logo.png
+    - assets/videos/splash.mp4
+    - assets/videos/load.mp4
+    - assets/videos/login.mp4
+    - assets/videos/banner.mp4
+    - assets/videos/bnb.mp4
+    - assets/videos/heder.mp4
+    - assets/images/news1.jpg
+    - assets/images/news2.jpg
+    - assets/images/news3.jpg
+    - assets/images/news4.jpg
+    - assets/images/news5.jpg
+    - assets/images/xore1.jpg
+    - assets/images/xore2.jpg
+    - assets/videos/animek.mp4
+    - assets/icon/icon.jpg
+
+  fonts:
+    - family: Rajdhani
+      fonts:
+        - asset: fonts/Rajdhani-Regular.ttf
+    - family: Orbitron
+      fonts:
+        - asset: fonts/Orbitron-Regular.ttf
+    - family: ShareTechMono
+      fonts:
+        - asset: fonts/ShareTechMono-Regular.ttf
+    - family: CinzelDecorative
+      fonts:
+        - asset: fonts/CinzelDecorative-Regular.ttf
+          weight: 400
+        - asset: fonts/CinzelDecorative-Bold.ttf
+          weight: 700
+        - asset: fonts/CinzelDecorative-Black.ttf
+          weight: 900
+EOF
     
-    # ==================== 3. SETUP JAVA ====================
-    - name: Setup Java 17
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.13.0'
+    
+    - name: Setup Java
       uses: actions/setup-java@v4
       with:
         distribution: 'zulu'
         java-version: '17'
     
-    # ==================== 4. SETUP FLUTTER ====================
-    - name: Setup Flutter
-      uses: subosito/flutter-action@v2
-      with:
-        flutter-version: '3.22.0'
-        channel: 'stable'
-    
-    # ==================== 5. GET DEPENDENCIES ====================
-    - name: Get dependencies
+    - name: Build
       run: |
         cd project
-        flutter clean
         flutter pub get
-    
-    # ==================== 6. BUILD APK ====================
-    - name: Build APK
-      run: |
-        cd project
         flutter build apk --release
     
-    # ==================== 7. AUTO-RENAME APK ====================
-    - name: Auto-Rename APK
+    - name: Rename
       run: |
         cd project
-        
-        APP_NAME=$(grep '^name:' pubspec.yaml | head -1 | sed 's/name: //' | tr -d ' ' | tr -d '"' | tr -d "'")
-        VERSION=$(grep '^version:' pubspec.yaml | head -1 | sed 's/version: //' | tr -d ' ' | tr -d '"' | tr -d "'")
-        DATE=$(date +'%Y%m%d_%H%M%S')
-        
-        CLEAN_NAME=$(echo "$APP_NAME" | sed 's/[^a-zA-Z0-9_-]//g')
-        CLEAN_VERSION=$(echo "$VERSION" | sed 's/[^a-zA-Z0-9._-]//g')
-        
-        FINAL_APK="${CLEAN_NAME}_v${CLEAN_VERSION}_${DATE}.apk"
-        
-        cp build/app/outputs/flutter-apk/app-release.apk "../../${FINAL_APK}"
-        
-        echo "✅ BUILD SUCCESSFUL!"
-        echo "📦 APK: $FINAL_APK"
-        
-        echo "APK_NAME=${FINAL_APK}" >> $GITHUB_ENV
+        cp build/app/outputs/flutter-apk/app-release.apk "../../app.apk"
     
-    # ==================== 8. UPLOAD APK ====================
-    - name: Upload APK
+    - name: Upload
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ env.APK_NAME }}
-        path: ${{ env.APK_NAME }}
+        name: app-release
+        path: app.apk
