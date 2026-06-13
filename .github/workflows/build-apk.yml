@@ -15,6 +15,31 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
     
+    - name: List files before unzip
+      run: |
+        echo "=== Files before unzip ==="
+        ls -la
+    
+    - name: Unzip project
+      run: |
+        # Cari file zip (bisa .zip atau .rar)
+        zip_file=$(ls *.zip 2>/dev/null | head -n 1)
+        if [ -f "$zip_file" ]; then
+          echo "Extracting $zip_file..."
+          unzip -q "$zip_file" -d ./extracted_project
+          echo "✅ Extraction complete!"
+        else
+          echo "❌ No zip file found!"
+          exit 1
+        fi
+    
+    - name: List files after unzip
+      run: |
+        echo "=== Extracted project structure ==="
+        ls -la ./extracted_project/
+        echo "=== Looking for pubspec.yaml ==="
+        find ./extracted_project -name "pubspec.yaml"
+    
     - name: Setup Java
       uses: actions/setup-java@v4
       with:
@@ -24,25 +49,26 @@ jobs:
     - name: Setup Flutter
       uses: subosito/flutter-action@v2
       with:
-        flutter-version: '3.24.0'  # ← Update versi
+        flutter-version: '3.24.0'
         channel: 'stable'
     
-    - name: Enable flutter config for web & desktop (opsional)
-      run: |
-        flutter config --enable-web
-        flutter config --enable-android
-    
     - name: Install dependencies
-      run: flutter pub get
+      run: |
+        cd ./extracted_project
+        flutter pub get
     
     - name: Clean project
-      run: flutter clean
+      run: |
+        cd ./extracted_project
+        flutter clean
     
     - name: Build APK
-      run: flutter build apk --release
+      run: |
+        cd ./extracted_project
+        flutter build apk --release
     
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
         name: release-apk
-        path: build/app/outputs/flutter-apk/app-release.apk
+        path: extracted_project/build/app/outputs/flutter-apk/app-release.apk
