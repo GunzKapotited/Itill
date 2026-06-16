@@ -120,22 +120,46 @@ jobs:
     - name: Start containers
       run: |
         docker-compose up -d
-        sleep 30
+        sleep 40
 
     - name: Setup Panel
       run: |
-        docker-compose exec -T panel php artisan key:generate --force
-        docker-compose exec -T panel php artisan migrate --seed --force
-        docker-compose exec -T panel php artisan p:user:make \
-          --email=admin@xonepanel.qzz.io \
-          --username=admin \
-          --name="Administrator" \
-          --password=AdminPassword123! \
-          --force
+        # Masuk ke container panel dan setup semuanya
+        docker-compose exec -T panel bash -c '
+          # Buat file .env
+          cat > .env << "EOF2"
+          APP_ENV=production
+          APP_DEBUG=false
+          APP_URL=https://pterogunz.xonepanel.qzz.io
+          APP_TIMEZONE=Asia/Jakarta
+          APP_SERVICE_AUTHOR=admin@xonepanel.qzz.io
+          DB_HOST=database
+          DB_PORT=3306
+          DB_DATABASE=panel
+          DB_USERNAME=pterodactyl
+          DB_PASSWORD=panelpasswordkuat123
+          REDIS_HOST=redis
+          REDIS_PORT=6379
+          HASHIDS_SALT=saltsangatpanjangdanunik12345
+          SESSION_DRIVER=redis
+          SESSION_LIFETIME=120
+          EOF2
+          
+          # Generate key
+          php artisan key:generate --force
+          
+          # Migrate database
+          php artisan migrate --seed --force
+          
+          # Buat admin user
+          php artisan p:user:make --email=admin@xonepanel.qzz.io --username=admin --name=Administrator --password=AdminPassword123! --force
+        '
 
     - name: Setup Wings
       run: |
         sleep 10
+        
+        # Buat node
         docker-compose exec -T panel php artisan p:node:make \
           --name="Main-Node" \
           --description="Auto deployed" \
@@ -151,7 +175,11 @@ jobs:
           --force
         
         sleep 5
+        
+        # Ambil konfigurasi wings
         docker-compose exec -T panel php artisan p:node:configuration 1 > ./data/wings/config.yml
+        
+        # Restart wings
         docker-compose restart wings
 
     - name: Keep Alive
