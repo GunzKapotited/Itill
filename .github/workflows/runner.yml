@@ -122,17 +122,32 @@ jobs:
         docker-compose up -d
         sleep 30
 
-    - name: Setup Panel Database
+    - name: 🔑 Generate App Key
       run: |
-        docker-compose exec -T panel php artisan key:generate
-        docker-compose exec -T panel php artisan migrate --seed
+        echo "========================================="
+        echo "🔑 GENERATE APP KEY..."
+        echo "========================================="
+        docker-compose exec -T panel php artisan key:generate --force
+
+    - name: 📦 Setup Panel Database
+      run: |
+        echo "========================================="
+        echo "📦 MIGRASI DATABASE..."
+        echo "========================================="
+        docker-compose exec -T panel php artisan migrate --seed --force
+        
+        echo ""
+        echo "========================================="
+        echo "👤 BUAT ADMIN USER..."
+        echo "========================================="
         docker-compose exec -T panel php artisan p:user:make \
           --email=admin@xonepanel.qzz.io \
           --username=admin \
           --name="Administrator" \
-          --password=AdminPassword123!
+          --password=AdminPassword123! \
+          --force
 
-    - name: AUTO SETUP WINGS NODE
+    - name: 🔥 AUTO SETUP WINGS NODE
       run: |
         echo "========================================="
         echo "🔥 MEMBUAT NODE DI PANEL..."
@@ -149,7 +164,8 @@ jobs:
           --daemon-port=8443 \
           --memory=8192 \
           --disk=51200 \
-          --upload-size=100
+          --upload-size=100 \
+          --force
         
         echo ""
         echo "========================================="
