@@ -128,32 +128,15 @@ jobs:
         echo "🔧 SETUP PANEL..."
         echo "========================================="
         
-        # STEP 1: BUAT .env FILE
-        docker-compose exec -T panel bash -c "echo 'APP_ENV=production' > .env"
-        docker-compose exec -T panel bash -c "echo 'APP_DEBUG=false' >> .env"
-        docker-compose exec -T panel bash -c "echo 'APP_URL=https://pterogunz.xonepanel.qzz.io' >> .env"
-        docker-compose exec -T panel bash -c "echo 'APP_TIMEZONE=Asia/Jakarta' >> .env"
-        docker-compose exec -T panel bash -c "echo 'APP_SERVICE_AUTHOR=admin@xonepanel.qzz.io' >> .env"
-        docker-compose exec -T panel bash -c "echo 'DB_HOST=database' >> .env"
-        docker-compose exec -T panel bash -c "echo 'DB_PORT=3306' >> .env"
-        docker-compose exec -T panel bash -c "echo 'DB_DATABASE=panel' >> .env"
-        docker-compose exec -T panel bash -c "echo 'DB_USERNAME=pterodactyl' >> .env"
-        docker-compose exec -T panel bash -c "echo 'DB_PASSWORD=panelpasswordkuat123' >> .env"
-        docker-compose exec -T panel bash -c "echo 'REDIS_HOST=redis' >> .env"
-        docker-compose exec -T panel bash -c "echo 'REDIS_PORT=6379' >> .env"
-        docker-compose exec -T panel bash -c "echo 'HASHIDS_SALT=saltsangatpanjangdanunik12345' >> .env"
-        docker-compose exec -T panel bash -c "echo 'SESSION_DRIVER=redis' >> .env"
-        docker-compose exec -T panel bash -c "echo 'SESSION_LIFETIME=120' >> .env"
-        
-        echo "✅ .env file created"
-        
-        # STEP 2: GENERATE KEY
+        # LANGSUNG PAKE PHP ARTISAN TANPA .env
         docker-compose exec -T panel php artisan key:generate --force
         
-        # STEP 3: MIGRATE DATABASE
+        echo "✅ Key generated"
+        
         docker-compose exec -T panel php artisan migrate --seed --force
         
-        # STEP 4: BUAT ADMIN
+        echo "✅ Database migrated"
+        
         docker-compose exec -T panel php artisan p:user:make \
           --email=admin@xonepanel.qzz.io \
           --username=admin \
@@ -161,7 +144,7 @@ jobs:
           --password=AdminPassword123! \
           --force
         
-        echo "✅ Panel setup selesai!"
+        echo "✅ Admin user created"
 
     - name: Setup Wings
       run: |
@@ -187,8 +170,6 @@ jobs:
         sleep 5
         docker-compose exec -T panel php artisan p:node:configuration 1 > ./data/wings/config.yml
         docker-compose restart wings
-        
-        echo "✅ Wings setup selesai!"
 
     - name: Keep Alive
       run: |
