@@ -122,15 +122,14 @@ jobs:
         docker-compose up -d
         sleep 30
 
-    - name: 🔑 Generate App Key
+    - name: 🔑 Setup Panel (Generate Key, Migrate, Admin)
       run: |
         echo "========================================="
         echo "🔑 GENERATE APP KEY..."
         echo "========================================="
-        docker-compose exec -T panel php artisan key:generate --force
-
-    - name: 📦 Setup Panel Database
-      run: |
+        docker-compose exec -T panel php artisan key:generate --force --no-interaction
+        
+        echo ""
         echo "========================================="
         echo "📦 MIGRASI DATABASE..."
         echo "========================================="
