@@ -1,4 +1,4 @@
-name: Deploy Pterodactyl Panel (Auto Installer)
+name: Deploy Pterodactyl Panel + Wings + Cloudflared
 
 on:
   push:
@@ -13,28 +13,13 @@ jobs:
     - name: Setup Docker & Dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y docker-compose curl wget git unzip
+        sudo apt-get install -y docker-compose curl
 
-    - name: Clone Pterodactyl Panel
+    - name: Create directories
       run: |
-        git clone --depth=1 https://github.com/pterodactyl/panel.git /tmp/panel
-        cd /tmp/panel
-        cp .env.example .env
-
-    - name: Setup .env
-      run: |
-        cd /tmp/panel
-        sed -i 's/APP_ENV=local/APP_ENV=production/g' .env
-        sed -i 's/APP_DEBUG=true/APP_DEBUG=false/g' .env
-        sed -i 's/APP_URL=http:\/\/localhost/APP_URL=https:\/\/pterogunz.xonepanel.qzz.io/g' .env
-        sed -i 's/DB_HOST=127.0.0.1/DB_HOST=database/g' .env
-        sed -i 's/DB_DATABASE=panel/DB_DATABASE=panel/g' .env
-        sed -i 's/DB_USERNAME=pterodactyl/DB_USERNAME=pterodactyl/g' .env
-        sed -i 's/DB_PASSWORD=/DB_PASSWORD=panelpasswordkuat123/g' .env
-        sed -i 's/REDIS_HOST=127.0.0.1/REDIS_HOST=redis/g' .env
-        echo "HASHIDS_SALT=saltsangatpanjangdanunik12345" >> .env
-        echo "SESSION_DRIVER=redis" >> .env
-        echo "SESSION_LIFETIME=120" >> .env
+        mkdir -p data/mysql data/panel data/ssl data/logs data/wings
+        sudo mkdir -p /var/lib/pterodactyl/volumes
+        sudo chmod 777 /var/lib/pterodactyl/volumes
 
     - name: Create docker-compose.yml
       run: |
@@ -72,8 +57,6 @@ jobs:
               - ./data/panel:/app/storage
               - ./data/ssl:/etc/nginx/ssl
               - ./data/logs:/app/storage/logs
-              - /tmp/panel:/app
-            working_dir: /app
             environment:
               APP_ENV: production
               APP_DEBUG: 'false'
@@ -96,11 +79,6 @@ jobs:
               - redis
             networks:
               - pterodactyl_network
-            command: >
-              sh -c "php artisan key:generate --force &&
-                     php artisan migrate --seed --force &&
-                     php artisan p:user:make --email=admin@xonepanel.qzz.io --username=admin --name=Administrator --password=AdminPassword123! --force &&
-                     php artisan serve --host=0.0.0.0 --port=80"
 
           wings:
             image: ghcr.io/pterodactyl/wings:latest
@@ -142,12 +120,48 @@ jobs:
     - name: Start containers
       run: |
         docker-compose up -d
-        sleep 45
+        sleep 40
 
-    - name: Setup Wings Node
+    - name: Setup Panel (Generate Key, Migrate, Admin)
       run: |
         echo "========================================="
-        echo "🔥 SETUP WINGS NODE..."
+        echo "🔑 SETUP PANEL..."
+        echo "========================================="
+        
+        docker-compose exec -T panel php artisan key:generate --force
+        
+        echo ""
+        echo "📦 MIGRASI DATABASE..."
+        docker-compose exec -T panel php artisan migrate --seed --force
+        
+        echo ""
+        echo "👤 BUAT ADMIN..."
+        docker-compose exec -T panel php artisan p:user:make \
+          --email=admin@xonepanel.qzz.io \
+          --username=admin \
+          --name="Administrator" \
+          --password=AdminPassword123! \
+          --force
+
+    - name: Setup Wings Node (TUNGGU PANEL SIAP)
+      run: |
+        echo "========================================="
+        echo "⏳ TUNGGU PANEL SIAP..."
+        echo "========================================="
+        
+        # Tunggu panel benar-benar siap
+        for i in {1..30}; do
+          if docker-compose exec -T panel php artisan --version > /dev/null 2>&1; then
+            echo "✅ Panel siap!"
+            break
+          fi
+          echo "⏳ Menunggu panel... ($i/30)"
+          sleep 5
+        done
+        
+        echo ""
+        echo "========================================="
+        echo "🔥 MEMBUAT NODE..."
         echo "========================================="
         
         docker-compose exec -T panel php artisan p:node:make \
@@ -164,22 +178,28 @@ jobs:
           --upload-size=100 \
           --force
         
+        echo ""
+        echo "📥 AMBIL KONFIGURASI WINGS..."
         sleep 10
         docker-compose exec -T panel php artisan p:node:configuration 1 > ./data/wings/config.yml
+        
+        echo ""
+        echo "🔄 RESTART WINGS..."
         docker-compose restart wings
         sleep 15
+        
+        echo ""
+        echo "✅ CEK WINGS..."
+        docker-compose logs --tail=30 wings
 
     - name: Keep Alive
       run: |
         echo "=========================================="
-        echo "✅ PTERODACTYL PANEL READY!"
+        echo "✅ PTERODACTYL PANEL + WINGS + CLOUDFLARED"
         echo "=========================================="
         echo "🌐 URL: https://pterogunz.xonepanel.qzz.io"
         echo "👤 Username: admin"
         echo "🔑 Password: AdminPassword123!"
-        echo "=========================================="
-        echo "🖥️  Wings: CONNECTED"
-        echo "☁️  Cloudflared: ACTIVE"
         echo "=========================================="
         
         while true; do
@@ -188,10 +208,10 @@ jobs:
           docker-compose ps
           echo "------------------------------------------"
           echo "📡 Panel Log:"
-          docker-compose logs --tail=3 panel
+          docker-compose logs --tail=2 panel
           echo "------------------------------------------"
-          echo "☁️  Cloudflared Log:"
-          docker-compose logs --tail=3 cloudflared
+          echo "☁️  Cloudflared:"
+          docker-compose logs --tail=2 cloudflared
           echo "------------------------------------------"
           sleep 30
         done
