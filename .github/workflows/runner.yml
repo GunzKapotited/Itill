@@ -122,12 +122,36 @@ jobs:
         docker-compose up -d
         sleep 30
 
-    - name: 🔑 Setup Panel (Generate Key, Migrate, Admin)
+    - name: Setup Panel
       run: |
+        echo "========================================="
+        echo "📝 BUAT .env FILE DI CONTAINER..."
+        echo "========================================="
+        
+        docker-compose exec -T panel bash -c "cat > .env << 'EOF'
+APP_ENV=production
+APP_DEBUG=false
+APP_URL=https://pterogunz.xonepanel.qzz.io
+APP_TIMEZONE=Asia/Jakarta
+APP_SERVICE_AUTHOR=admin@xonepanel.qzz.io
+DB_HOST=database
+DB_PORT=3306
+DB_DATABASE=panel
+DB_USERNAME=pterodactyl
+DB_PASSWORD=panelpasswordkuat123
+REDIS_HOST=redis
+REDIS_PORT=6379
+HASHIDS_SALT=saltsangatpanjangdanunik12345
+SESSION_DRIVER=redis
+SESSION_LIFETIME=120
+TRUSTED_PROXIES=103.21.244.0/22,103.22.200.0/22,103.31.4.0/22,104.16.0.0/13,104.24.0.0/14,108.162.192.0/18,131.0.72.0/22,141.101.64.0/18,162.158.0.0/15,172.64.0.0/13,173.245.48.0/20,188.114.96.0/20,190.93.240.0/20,197.234.240.0/22,198.41.128.0/17
+EOF"
+        
+        echo ""
         echo "========================================="
         echo "🔑 GENERATE APP KEY..."
         echo "========================================="
-        docker-compose exec -T panel php artisan key:generate --force --no-interaction
+        docker-compose exec -T panel php artisan key:generate --force
         
         echo ""
         echo "========================================="
@@ -146,7 +170,7 @@ jobs:
           --password=AdminPassword123! \
           --force
 
-    - name: 🔥 AUTO SETUP WINGS NODE
+    - name: AUTO SETUP WINGS NODE
       run: |
         echo "========================================="
         echo "🔥 MEMBUAT NODE DI PANEL..."
