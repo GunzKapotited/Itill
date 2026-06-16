@@ -59,7 +59,7 @@ jobs:
               - ./data/logs:/app/storage/logs
             environment:
               APP_ENV: production
-              APP_DEBUG: 'false'
+              APP_DEBUG: "false"
               APP_URL: https://pterogunz.xonepanel.qzz.io
               APP_TIMEZONE: Asia/Jakarta
               APP_SERVICE_AUTHOR: admin@xonepanel.qzz.io
@@ -128,23 +128,40 @@ jobs:
         echo "🔧 SETUP PANEL..."
         echo "========================================="
         
-        # LANGSUNG PAKE PHP ARTISAN TANPA .env
+        # BIKIN .env DULU DI DALAM CONTAINER
+        docker-compose exec -T panel sh -c "cat > .env << 'EOF2'
+APP_ENV=production
+APP_DEBUG=false
+APP_URL=https://pterogunz.xonepanel.qzz.io
+APP_TIMEZONE=Asia/Jakarta
+APP_SERVICE_AUTHOR=admin@xonepanel.qzz.io
+DB_HOST=database
+DB_PORT=3306
+DB_DATABASE=panel
+DB_USERNAME=pterodactyl
+DB_PASSWORD=panelpasswordkuat123
+REDIS_HOST=redis
+REDIS_PORT=6379
+HASHIDS_SALT=saltsangatpanjangdanunik12345
+SESSION_DRIVER=redis
+SESSION_LIFETIME=120
+EOF2"
+        
+        echo "✅ .env file created"
+        
+        # GENERATE KEY
         docker-compose exec -T panel php artisan key:generate --force
         
-        echo "✅ Key generated"
-        
+        # MIGRATE DATABASE
         docker-compose exec -T panel php artisan migrate --seed --force
         
-        echo "✅ Database migrated"
-        
+        # BUAT ADMIN
         docker-compose exec -T panel php artisan p:user:make \
           --email=admin@xonepanel.qzz.io \
           --username=admin \
           --name="Administrator" \
           --password=AdminPassword123! \
           --force
-        
-        echo "✅ Admin user created"
 
     - name: Setup Wings
       run: |
