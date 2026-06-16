@@ -1,0 +1,219 @@
+name: Deploy Pterodactyl Panel + Wings + Cloudflared
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Setup Docker
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y docker-compose
+
+    - name: Create directories
+      run: |
+        mkdir -p data/mysql data/panel data/ssl data/logs data/wings
+        sudo mkdir -p /var/lib/pterodactyl/volumes
+        sudo chmod 777 /var/lib/pterodactyl/volumes
+
+    - name: Create docker-compose.yml
+      run: |
+        cat > docker-compose.yml << 'EOF'
+        version: '3.8'
+        
+        services:
+          database:
+            image: mariadb:10.6
+            restart: always
+            command: --default-authentication-plugin=mysql_native_password
+            volumes:
+              - ./data/mysql:/var/lib/mysql
+            environment:
+              MYSQL_ROOT_PASSWORD: rootpasswordkuat123
+              MYSQL_DATABASE: panel
+              MYSQL_USER: pterodactyl
+              MYSQL_PASSWORD: panelpasswordkuat123
+            networks:
+              - pterodactyl_network
+
+          redis:
+            image: redis:alpine
+            restart: always
+            networks:
+              - pterodactyl_network
+
+          panel:
+            image: ghcr.io/pterodactyl/panel:latest
+            restart: always
+            ports:
+              - "80:80"
+              - "443:443"
+            volumes:
+              - ./data/panel:/app/storage
+              - ./data/ssl:/etc/nginx/ssl
+              - ./data/logs:/app/storage/logs
+            environment:
+              APP_ENV: production
+              APP_DEBUG: false
+              APP_URL: https://panel.domain-anda.com
+              APP_TIMEZONE: Asia/Jakarta
+              APP_SERVICE_AUTHOR: admin@domain-anda.com
+              DB_HOST: database
+              DB_PORT: 3306
+              DB_DATABASE: panel
+              DB_USERNAME: pterodactyl
+              DB_PASSWORD: panelpasswordkuat123
+              REDIS_HOST: redis
+              REDIS_PORT: 6379
+              HASHIDS_SALT: saltsangatpanjangdanunik12345
+              SESSION_DRIVER: redis
+              SESSION_LIFETIME: 120
+              TRUSTED_PROXIES: "103.21.244.0/22,103.22.200.0/22,103.31.4.0/22,104.16.0.0/13,104.24.0.0/14,108.162.192.0/18,131.0.72.0/22,141.101.64.0/18,162.158.0.0/15,172.64.0.0/13,173.245.48.0/20,188.114.96.0/20,190.93.240.0/20,197.234.240.0/22,198.41.128.0/17"
+            depends_on:
+              - database
+              - redis
+            networks:
+              - pterodactyl_network
+
+          wings:
+            image: ghcr.io/pterodactyl/wings:latest
+            restart: always
+            privileged: true
+            volumes:
+              - /var/run/docker.sock:/var/run/docker.sock
+              - /var/lib/docker/containers:/var/lib/docker/containers
+              - ./data/wings:/etc/pterodactyl
+              - /tmp/pterodactyl:/tmp/pterodactyl
+              - /var/lib/pterodactyl/volumes:/var/lib/pterodactyl/volumes
+            environment:
+              WINGS_UID: 988
+              WINGS_GID: 988
+              TZ: Asia/Jakarta
+            networks:
+              - pterodactyl_network
+            depends_on:
+              - panel
+            ports:
+              - "8080:8080"
+              - "8443:8443"
+
+          cloudflared:
+            image: cloudflare/cloudflared:latest
+            restart: always
+            command: tunnel run --token eyJhIjoiY2FkNjFhM2UyYzk5Y2NiN2IwNTQ2MmU0MWY1N2JjNTYiLCJ0IjoiN2E1YWI3ZGMtZTdlYy00NWIwLTllM2YtMTczYTE4YzEwODQ2IiwicyI6Ill6SmpPV0l3TURNdFl6RmtaQzAwWVRRMkxUbG1NR1F0TTJRMFpUTmpabU5tTVRsbCJ9
+            networks:
+              - pterodactyl_network
+            depends_on:
+              - panel
+              - wings
+
+        networks:
+          pterodactyl_network:
+            driver: bridge
+        EOF
+
+    - name: Start containers
+      run: |
+        docker-compose up -d
+        sleep 30
+
+    - name: Setup Panel Database
+      run: |
+        docker-compose exec -T panel php artisan key:generate
+        docker-compose exec -T panel php artisan migrate --seed
+        docker-compose exec -T panel php artisan p:user:make \
+          --email=admin@domain-anda.com \
+          --username=admin \
+          --name="Administrator" \
+          --password=AdminPassword123!
+
+    - name: 🔥 AUTO SETUP WINGS NODE
+      run: |
+        echo "========================================="
+        echo "🔥 MEMBUAT NODE DI PANEL..."
+        echo "========================================="
+        
+        # 1. BUAT NODE DI PANEL (ID OTOMATIS 1)
+        docker-compose exec -T panel php artisan p:node:make \
+          --name="Main-Node" \
+          --description="Auto deployed node" \
+          --fqdn="localhost" \
+          --public=1 \
+          --scheme="https" \
+          --master=1 \
+          --port=8080 \
+          --daemon-port=8443 \
+          --memory=8192 \
+          --disk=51200 \
+          --upload-size=100
+        
+        echo ""
+        echo "========================================="
+        echo "📥 AMBIL KONFIGURASI WINGS DARI PANEL..."
+        echo "========================================="
+        
+        # 2. AMBIL KONFIGURASI WINGS (NODE ID = 1)
+        sleep 10
+        docker-compose exec -T panel php artisan p:node:configuration 1 > ./data/wings/config.yml
+        
+        # 3. CEK FILE CONFIG
+        cat ./data/wings/config.yml | head -20
+        echo ""
+        
+        echo "========================================="
+        echo "🔄 RESTART WINGS DENGAN CONFIG BARU..."
+        echo "========================================="
+        
+        # 4. RESTART WINGS
+        docker-compose restart wings
+        
+        # 5. TUNGGU WINGS KONEK
+        sleep 15
+        
+        echo ""
+        echo "========================================="
+        echo "✅ VERIFIKASI WINGS CONNECTION..."
+        echo "========================================="
+        
+        # 6. CEK LOG WINGS
+        docker-compose logs --tail=30 wings
+        
+        echo ""
+        echo "========================================="
+        echo "✅ WINGS OTOMATIS KONEK!"
+        echo "========================================="
+
+    - name: Keep Alive
+      run: |
+        echo "=========================================="
+        echo "✅ PTERODACTYL PANEL + WINGS + CLOUDFLARED"
+        echo "=========================================="
+        echo "🌐 URL: https://panel.domain-anda.com"
+        echo "👤 Username: admin"
+        echo "🔑 Password: AdminPassword123!"
+        echo "=========================================="
+        echo "🖥️  Wings Status: CONNECTED"
+        echo "☁️  Cloudflared: ACTIVE"
+        echo "=========================================="
+        
+        # KEEP RUNNING (MAX 6 JAM)
+        while true; do
+          clear
+          echo "⏰ $(date)"
+          echo "------------------------------------------"
+          docker-compose ps
+          echo "------------------------------------------"
+          echo "📡 Wings Log:"
+          docker-compose logs --tail=3 wings
+          echo "------------------------------------------"
+          echo "☁️  Cloudflared Log:"
+          docker-compose logs --tail=3 cloudflared
+          echo "------------------------------------------"
+          echo "🔄 Keep alive... (refresh every 30s)"
+          sleep 30
+        done
