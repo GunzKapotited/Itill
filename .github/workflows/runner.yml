@@ -59,7 +59,7 @@ jobs:
               - ./data/logs:/app/storage/logs
             environment:
               APP_ENV: production
-              APP_DEBUG: false
+              APP_DEBUG: 'false'
               APP_URL: https://panel.domain-anda.com
               APP_TIMEZONE: Asia/Jakarta
               APP_SERVICE_AUTHOR: admin@domain-anda.com
@@ -132,13 +132,12 @@ jobs:
           --name="Administrator" \
           --password=AdminPassword123!
 
-    - name: 🔥 AUTO SETUP WINGS NODE
+    - name: AUTO SETUP WINGS NODE
       run: |
         echo "========================================="
         echo "🔥 MEMBUAT NODE DI PANEL..."
         echo "========================================="
         
-        # 1. BUAT NODE DI PANEL (ID OTOMATIS 1)
         docker-compose exec -T panel php artisan p:node:make \
           --name="Main-Node" \
           --description="Auto deployed node" \
@@ -154,39 +153,26 @@ jobs:
         
         echo ""
         echo "========================================="
-        echo "📥 AMBIL KONFIGURASI WINGS DARI PANEL..."
+        echo "📥 AMBIL KONFIGURASI WINGS..."
         echo "========================================="
         
-        # 2. AMBIL KONFIGURASI WINGS (NODE ID = 1)
         sleep 10
         docker-compose exec -T panel php artisan p:node:configuration 1 > ./data/wings/config.yml
         
-        # 3. CEK FILE CONFIG
-        cat ./data/wings/config.yml | head -20
         echo ""
-        
         echo "========================================="
-        echo "🔄 RESTART WINGS DENGAN CONFIG BARU..."
+        echo "🔄 RESTART WINGS..."
         echo "========================================="
         
-        # 4. RESTART WINGS
         docker-compose restart wings
-        
-        # 5. TUNGGU WINGS KONEK
         sleep 15
         
         echo ""
         echo "========================================="
-        echo "✅ VERIFIKASI WINGS CONNECTION..."
+        echo "✅ VERIFIKASI WINGS..."
         echo "========================================="
         
-        # 6. CEK LOG WINGS
         docker-compose logs --tail=30 wings
-        
-        echo ""
-        echo "========================================="
-        echo "✅ WINGS OTOMATIS KONEK!"
-        echo "========================================="
 
     - name: Keep Alive
       run: |
@@ -201,9 +187,7 @@ jobs:
         echo "☁️  Cloudflared: ACTIVE"
         echo "=========================================="
         
-        # KEEP RUNNING (MAX 6 JAM)
         while true; do
-          clear
           echo "⏰ $(date)"
           echo "------------------------------------------"
           docker-compose ps
